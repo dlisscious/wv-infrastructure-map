@@ -161,6 +161,11 @@
       <div class="stat-value">Ashburn, VA</div>
       <div class="stat-sub">Northern Virginia data center alley</div>
     </div>
+    <div class="stat">
+      <div class="stat-label">Available sites shown</div>
+      <div class="stat-value" style="color:#22a155">5 sites</div>
+      <div class="stat-sub">400+ acres each · click to view listing</div>
+    </div>
   </div>
 
   <div class="map-card">
@@ -368,9 +373,63 @@
         .attr('font-size',10).attr('fill','#555').text(c.name);
     });
 
+    // Available sites (400+ acres)
+    const sites = [
+      {c:[-78.042,39.358], name:'Silver Property Portfolio', city:'Inwood', county:'Berkeley Co', acres:420, url:'https://properties.zoomprospector.com/westvirginia/property/Arden-Nollville-Road-Inwood-West-Virginia/DF5FE494-75C9-40A3-BB86-037181AD9302'},
+      {c:[-78.982,39.436], name:'Green Mountain', city:'Keyser', county:'Mineral Co', acres:6000, url:'https://properties.zoomprospector.com/westvirginia/property/1296-Tasker-Rd,-Keyser,-WV-26726-Keyser-West-Virginia/F4924830-0C0C-4675-AE95-70852DF60BBA'},
+      {c:[-77.739,39.325], name:'Old Standard Site', city:'Harpers Ferry', county:'Jefferson Co', acres:407, url:'https://properties.zoomprospector.com/westvirginia/property/Millville-Rd-Harpers-Ferry-West-Virginia/E693EE6D-7E7C-48A4-8000-82F5AA1357BD'},
+      {c:[-77.860,39.287], name:'Charles Town Properties', city:'Charles Town', county:'Jefferson Co', acres:600, url:'https://properties.zoomprospector.com/westvirginia/property/1599-Roper-North-Fork-Road-Charles-Town-West-Virginia/BD61FBF0-808C-49FB-81EF-9DA7F0D6231F'},
+      {c:[-80.247,39.285], name:'Charles Pointe', city:'Bridgeport', county:'Harrison Co', acres:667, url:'https://properties.zoomprospector.com/westvirginia/property/Genesis-Blvd-and-WV-279-Bridgeport-West-Virginia/37CBF7D7-AA16-421C-97C1-C6AB6D9DB89C'},
+    ];
+
+    // Tooltip div
+    const tooltip = d3.select('#map-container').append('div')
+      .style('position','absolute').style('pointer-events','none')
+      .style('display','none').style('background','rgba(255,255,255,0.97)')
+      .style('border','1px solid #ddd').style('border-radius','8px')
+      .style('padding','10px 14px').style('font-size','12px')
+      .style('line-height','1.6').style('box-shadow','0 2px 8px rgba(0,0,0,0.12)')
+      .style('max-width','180px');
+
+    d3.select('#map-container').style('position','relative');
+
+    sites.forEach(s => {
+      const [x,y] = proj(s.c);
+      const r = Math.max(8, Math.min(16, Math.sqrt(s.acres / 400) * 9));
+
+      const g = svg.append('g').style('cursor','pointer')
+        .on('mouseover', function(event) {
+          tooltip.style('display','block')
+            .html(`<strong>${s.name}</strong><br>${s.city}, ${s.county}<br><span style="color:#1a7a3a;font-weight:600">${s.acres.toLocaleString()} acres available</span>`);
+        })
+        .on('mousemove', function(event) {
+          const rect = document.getElementById('map-container').getBoundingClientRect();
+          const svgEl = document.querySelector('#map-container svg');
+          const svgRect = svgEl.getBoundingClientRect();
+          const scaleX = svgRect.width / W;
+          const px = x * scaleX + (svgRect.left - rect.left) + 12;
+          const py = y * scaleX + (svgRect.top - rect.top) - 10;
+          tooltip.style('left', px + 'px').style('top', py + 'px');
+        })
+        .on('mouseout', function() { tooltip.style('display','none'); })
+        .on('click', function() { window.open(s.url, '_blank'); });
+
+      // Pulse ring
+      g.append('circle').attr('cx',x).attr('cy',y).attr('r',r+4)
+        .attr('fill','none').attr('stroke','#1a7a3a').attr('stroke-width',1.5).attr('opacity',0.3);
+      // Main dot
+      g.append('circle').attr('cx',x).attr('cy',y).attr('r',r)
+        .attr('fill','#22a155').attr('stroke','#fff').attr('stroke-width',2).attr('opacity',0.88);
+      // Acre label inside
+      g.append('text').attr('x',x).attr('y',y+4)
+        .attr('text-anchor','middle').attr('font-size', r > 11 ? 9 : 8)
+        .attr('font-weight','700').attr('fill','#fff').attr('pointer-events','none')
+        .text(s.acres >= 1000 ? (s.acres/1000).toFixed(1)+'k' : s.acres);
+    });
+
     // Legend
-    const lg = svg.append('g').attr('transform',`translate(18,${H-130})`);
-    lg.append('rect').attr('width',230).attr('height',118).attr('rx',8)
+    const lg = svg.append('g').attr('transform',`translate(18,${H-160})`);
+    lg.append('rect').attr('width',238).attr('height',148).attr('rx',8)
       .attr('fill','rgba(255,255,255,0.95)').attr('stroke','#ddd').attr('stroke-width',1);
     lg.append('line').attr('x1',14).attr('y1',22).attr('x2',42).attr('y2',22)
       .attr('stroke','#E8420A').attr('stroke-width',4);
@@ -384,10 +443,16 @@
       .attr('stroke','#1a1a1a').attr('stroke-width',1.5).attr('stroke-dasharray','4,3').attr('opacity',0.5);
     lg.append('text').attr('x',48).attr('y',74).attr('font-size',12).attr('fill','#555')
       .text('Closest approach (~9.75 mi)');
-    lg.append('text').attr('x',14).attr('y',94).attr('font-size',10).attr('fill','#888')
-      .text('Route alignments are approximate.');
-    lg.append('text').attr('x',14).attr('y',108).attr('font-size',10).attr('fill','#888')
-      .text('MARL pending WV/VA PSC approval.');
+    lg.append('circle').attr('cx',26).attr('cy',96).attr('r',9)
+      .attr('fill','#22a155').attr('stroke','#fff').attr('stroke-width',2).attr('opacity',0.88);
+    lg.append('text').attr('x',48).attr('y',100).attr('font-size',12).attr('fill','#222').attr('font-weight','500')
+      .text('Available site (400+ acres)');
+    lg.append('text').attr('x',14).attr('y',120).attr('font-size',10).attr('fill','#888')
+      .text('Circle size = relative acreage.');
+    lg.append('text').attr('x',14).attr('y',134).attr('font-size',10).attr('fill','#888')
+      .text('Click a site to view listing.');
+    lg.append('text').attr('x',14).attr('y',148).attr('font-size',10).attr('fill','#888')
+      .text('MARL alignment approximate.');
   }
 })();
 </script>
