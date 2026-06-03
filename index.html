@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WV Infrastructure Map — MARL &amp; Zayo</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f7f6f2;
+      color: #1a1a1a;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #fff;
+      border-bottom: 1px solid #e0ddd5;
+      padding: 16px 32px;
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+    }
+    header h1 {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+    }
+    header p {
+      font-size: 13px;
+      color: #666;
+    }
+
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 28px 24px;
+    }
+
+    .map-card {
+      background: #fff;
+      border: 1px solid #e0ddd5;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+
+    #map-container svg {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .stat {
+      background: #fff;
+      border: 1px solid #e0ddd5;
+      border-radius: 10px;
+      padding: 14px 18px;
+    }
+    .stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: #888; margin-bottom: 4px; }
+    .stat-value { font-size: 22px; font-weight: 600; }
+    .stat-sub   { font-size: 12px; color: #666; margin-top: 2px; }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 640px) { .info-grid { grid-template-columns: 1fr; } }
+
+    .info-card {
+      background: #fff;
+      border: 1px solid #e0ddd5;
+      border-radius: 10px;
+      padding: 18px 20px;
+    }
+    .info-card h3 {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .swatch {
+      display: inline-block;
+      width: 28px; height: 4px;
+      border-radius: 2px;
+      vertical-align: middle;
+    }
+    .swatch-dashed {
+      background: repeating-linear-gradient(90deg, #534AB7 0, #534AB7 8px, transparent 8px, transparent 12px);
+      height: 3px;
+    }
+    .info-card ul {
+      list-style: none;
+      font-size: 13px;
+      line-height: 1.9;
+      color: #444;
+    }
+    .info-card ul li::before { content: "→ "; color: #aaa; }
+
+    .closest {
+      background: #fff;
+      border: 1px solid #e0ddd5;
+      border-radius: 10px;
+      padding: 16px 20px;
+      font-size: 13px;
+      color: #444;
+      line-height: 1.7;
+      margin-bottom: 24px;
+    }
+    .closest strong { color: #1a1a1a; }
+
+    footer {
+      text-align: center;
+      font-size: 12px;
+      color: #aaa;
+      padding: 20px;
+    }
+    footer a { color: #888; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>WV Infrastructure Map</h1>
+  <p>MARL 500-kV Transmission Line &amp; Zayo Columbus–Ashburn Dark Fiber</p>
+</header>
+
+<main>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-label">MARL length</div>
+      <div class="stat-value" style="color:#E8420A">~107.5 mi</div>
+      <div class="stat-sub">500-kV, PA → VA via WV</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Zayo fiber length</div>
+      <div class="stat-value" style="color:#534AB7">~400 mi</div>
+      <div class="stat-sub">Dark fiber, Columbus → Ashburn</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Closest approach</div>
+      <div class="stat-value">~9.75 mi</div>
+      <div class="stat-sub">Near Gore, VA / Strasburg corridor</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Shared destination</div>
+      <div class="stat-value">Ashburn, VA</div>
+      <div class="stat-sub">Northern Virginia data center alley</div>
+    </div>
+  </div>
+
+  <div class="map-card">
+    <div id="map-container"></div>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-card">
+      <h3><span class="swatch" style="background:#E8420A;"></span> MARL — MidAtlantic Resiliency Link</h3>
+      <ul>
+        <li>Developed by NextEra Energy Transmission, selected by PJM</li>
+        <li>500-kV, ~107.5 miles, Dunkard Twp PA → Gore VA</li>
+        <li>WV counties: Monongalia, Preston, Mineral, Hampshire</li>
+        <li>New 500/138-kV substation in Frederick County, VA</li>
+        <li>Construction target: fall 2029, in-service 2030–31</li>
+        <li>Estimated cost: ~$960 million</li>
+      </ul>
+    </div>
+    <div class="info-card">
+      <h3><span class="swatch swatch-dashed"></span> Zayo Columbus–Ashburn Dark Fiber</h3>
+      <ul>
+        <li>Announced Nov 2018, built ~2019–2021</li>
+        <li>~400 route miles, lowest-latency Columbus–Ashburn path</li>
+        <li>Follows North Bend Rail Trail: Parkersburg → Clarksburg</li>
+        <li>Continues east via US-33 corridor through Elkins</li>
+        <li>Terminates at Ashburn / Data Center Alley</li>
+        <li>Underground dark fiber construction</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="closest">
+    <strong>Closest approach: ~9.75 miles</strong> — The two routes come nearest to each other at the eastern end,
+    where the MARL line terminates near Gore, VA and the Zayo fiber passes through the
+    Strasburg/Wardensville corridor ~10 miles to the south. Both routes converge on the same
+    Northern Virginia data center market from different directions — MARL brings power from
+    Appalachian generation, Zayo carries data from Midwest cloud hubs.
+  </div>
+
+</main>
+
+<footer>
+  Sources: <a href="https://www.nexteraenergytransmission.com/midatlantic-resiliency-link.html" target="_blank">NextEra MARL</a> ·
+  <a href="https://www.zayo.com/newsroom/zayo-announces-two-new-long-haul-fiber-routes/" target="_blank">Zayo announcement</a> ·
+  <a href="https://wvmetronews.com/2025/09/26/developer-of-big-transmission-line-announces-preferred-route/" target="_blank">WV MetroNews</a> ·
+  Map data © OpenStreetMap / US Census
+</footer>
+
+<script>
+(function() {
+  const W = 960, H = 620;
+  const svg = d3.select('#map-container').append('svg')
+    .attr('viewBox', `0 0 ${W} ${H}`)
+    .style('width','100%').style('height','auto');
+
+  const proj = d3.geoMercator()
+    .center([-80.5, 39.1])
+    .scale(6800)
+    .translate([W/2, H/2]);
+
+  const path = d3.geoPath().projection(proj);
+
+  const stateFills = {
+    '54':'#e8f5ed','42':'#e8f0fa','24':'#eeeef7','51':'#faeaea',
+    '39':'#fdf8ed','21':'#f5ede0'
+  };
+  const stateNames = {
+    '54':'West Virginia','42':'Pennsylvania','24':'Maryland',
+    '51':'Virginia','39':'Ohio','21':'Kentucky'
+  };
+  const labelPos = {
+    '54':[-80.4,38.65],'42':[-77.8,40.9],'24':[-76.9,39.35],
+    '51':[-78.6,37.5],'39':[-82.8,40.3],'21':[-84.3,37.5]
+  };
+  const focus = new Set(['54','42','24','51','39']);
+
+  fetch('https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json')
+    .then(r => r.json())
+    .then(us => {
+      const states = topojson.feature(us, us.objects.states);
+
+      svg.append('g').selectAll('path')
+        .data(states.features)
+        .join('path')
+        .attr('d', path)
+        .attr('fill', d => stateFills[String(d.id)] || '#eeebe4')
+        .attr('stroke', '#c8c4ba')
+        .attr('stroke-width', d => focus.has(String(d.id)) ? 1 : 0.4)
+        .attr('opacity', d => focus.has(String(d.id)) ? 1 : 0.55);
+
+      svg.append('path')
+        .datum(topojson.mesh(us, us.objects.states, (a,b) => a !== b))
+        .attr('d', path).attr('fill','none')
+        .attr('stroke','#b0ada4').attr('stroke-width', 0.8);
+
+      states.features.filter(d => stateNames[String(d.id)]).forEach(d => {
+        const id = String(d.id);
+        const c = labelPos[id] || d3.geoCentroid(d);
+        const [x,y] = proj(c);
+        svg.append('text').attr('x',x).attr('y',y)
+          .attr('text-anchor','middle')
+          .attr('font-size', focus.has(id) ? 13 : 11)
+          .attr('font-weight', focus.has(id) ? '600' : '400')
+          .attr('fill', focus.has(id) ? '#555' : '#aaa')
+          .attr('pointer-events','none')
+          .text(stateNames[id]);
+      });
+
+      drawRoutes();
+    });
+
+  function drawRoutes() {
+    const lineGen = d3.line()
+      .x(d => proj(d)[0]).y(d => proj(d)[1])
+      .curve(d3.curveCatmullRom.alpha(0.5));
+
+    const marl = [
+      [-80.075,39.875],[-80.04,39.79],[-80.01,39.72],[-79.97,39.63],
+      [-79.83,39.55],[-79.68,39.47],[-79.54,39.45],[-79.38,39.43],
+      [-79.22,39.42],[-79.02,39.44],[-78.97,39.44],[-78.87,39.40],
+      [-78.76,39.34],[-78.62,39.30],[-78.55,39.26],[-78.48,39.22],
+      [-78.38,39.15]
+    ];
+    const zayo = [
+      [-83.000,39.961],[-82.013,39.940],[-81.600,39.620],[-81.440,39.420],
+      [-81.561,39.267],[-81.100,39.282],[-80.820,39.270],[-80.346,39.281],
+      [-80.232,38.994],[-79.845,38.926],[-79.373,38.833],[-78.988,39.066],
+      [-78.598,39.073],[-78.359,38.990],[-78.020,38.920],[-77.700,38.820],
+      [-77.488,39.043]
+    ];
+
+    // Zayo
+    svg.append('path').datum(zayo).attr('d', lineGen)
+      .attr('fill','none').attr('stroke','#534AB7')
+      .attr('stroke-width', 3.5).attr('stroke-dasharray','10,5').attr('opacity',0.85);
+
+    // MARL
+    svg.append('path').datum(marl).attr('d', lineGen)
+      .attr('fill','none').attr('stroke','#E8420A')
+      .attr('stroke-width', 4).attr('opacity',0.95);
+
+    // Closest approach indicator
+    const marlClose = proj([-78.38,39.15]);
+    const zayoClose = proj([-78.427,39.014]);
+    svg.append('line')
+      .attr('x1',marlClose[0]).attr('y1',marlClose[1])
+      .attr('x2',zayoClose[0]).attr('y2',zayoClose[1])
+      .attr('stroke','#1a1a1a').attr('stroke-width',1.5)
+      .attr('stroke-dasharray','3,3').attr('opacity',0.5);
+    const mx = (marlClose[0]+zayoClose[0])/2;
+    const my = (marlClose[1]+zayoClose[1])/2;
+    svg.append('text').attr('x',mx+6).attr('y',my)
+      .attr('font-size',10).attr('fill','#444').attr('font-weight','500')
+      .text('~9.75 mi');
+
+    // MARL nodes
+    [
+      {c:[-80.075,39.875], label:'Dunkard Twp, PA', a:'left', dy:0},
+      {c:[-79.97,39.63],   label:'Monongalia Co', a:'left', dy:0},
+      {c:[-78.97,39.44],   label:'Mineral Co', a:'right', dy:-8},
+      {c:[-78.76,39.34],   label:'Hampshire Co', a:'right', dy:0},
+      {c:[-78.38,39.15],   label:'Gore, VA', a:'right', dy:0},
+    ].forEach(n => {
+      const [x,y] = proj(n.c);
+      svg.append('circle').attr('cx',x).attr('cy',y).attr('r',5.5)
+        .attr('fill','#E8420A').attr('stroke','#fff').attr('stroke-width',2);
+      svg.append('text')
+        .attr('x', n.a==='right' ? x+9 : x-9).attr('y',y+4+n.dy)
+        .attr('text-anchor', n.a==='right' ? 'start' : 'end')
+        .attr('font-size',10.5).attr('font-weight','600').attr('fill','#c73208')
+        .text(n.label);
+    });
+
+    // Zayo nodes
+    [
+      {c:[-83.000,39.961], label:'Columbus, OH', a:'left'},
+      {c:[-81.561,39.267], label:'Parkersburg, WV', a:'left'},
+      {c:[-80.346,39.281], label:'Clarksburg, WV', a:'right'},
+      {c:[-79.845,38.926], label:'Elkins, WV', a:'right'},
+      {c:[-77.488,39.043], label:'Ashburn, VA', a:'right'},
+    ].forEach(n => {
+      const [x,y] = proj(n.c);
+      svg.append('circle').attr('cx',x).attr('cy',y).attr('r',5.5)
+        .attr('fill','#534AB7').attr('stroke','#fff').attr('stroke-width',2);
+      svg.append('text')
+        .attr('x', n.a==='right' ? x+9 : x-9).attr('y',y+4)
+        .attr('text-anchor', n.a==='right' ? 'start' : 'end')
+        .attr('font-size',10.5).attr('font-weight','600').attr('fill','#3C3489')
+        .text(n.label);
+    });
+
+    // cities
+    [
+      {c:[-81.633,38.350], name:'Charleston'},
+      {c:[-82.445,38.419], name:'Huntington'},
+      {c:[-79.956,39.630], name:'Morgantown'},
+      {c:[-79.845,38.920], name:'Elkins'},
+      {c:[-78.164,39.186], name:'Winchester, VA'},
+      {c:[-80.346,39.281], name:'Clarksburg'},
+    ].forEach(c => {
+      const [x,y] = proj(c.c);
+      svg.append('circle').attr('cx',x).attr('cy',y).attr('r',3)
+        .attr('fill','#888').attr('stroke','#fff').attr('stroke-width',1.5);
+      svg.append('text').attr('x',x+7).attr('y',y+4)
+        .attr('font-size',10).attr('fill','#555').text(c.name);
+    });
+
+    // Legend
+    const lg = svg.append('g').attr('transform',`translate(18,${H-130})`);
+    lg.append('rect').attr('width',230).attr('height',118).attr('rx',8)
+      .attr('fill','rgba(255,255,255,0.95)').attr('stroke','#ddd').attr('stroke-width',1);
+    lg.append('line').attr('x1',14).attr('y1',22).attr('x2',42).attr('y2',22)
+      .attr('stroke','#E8420A').attr('stroke-width',4);
+    lg.append('text').attr('x',48).attr('y',26).attr('font-size',12).attr('fill','#222').attr('font-weight','500')
+      .text('MARL 500-kV (proposed)');
+    lg.append('line').attr('x1',14).attr('y1',46).attr('x2',42).attr('y2',46)
+      .attr('stroke','#534AB7').attr('stroke-width',3.5).attr('stroke-dasharray','10,5');
+    lg.append('text').attr('x',48).attr('y',50).attr('font-size',12).attr('fill','#222').attr('font-weight','500')
+      .text('Zayo dark fiber (built ~2021)');
+    lg.append('line').attr('x1',14).attr('y1',70).attr('x2',42).attr('y2',70)
+      .attr('stroke','#1a1a1a').attr('stroke-width',1.5).attr('stroke-dasharray','4,3').attr('opacity',0.5);
+    lg.append('text').attr('x',48).attr('y',74).attr('font-size',12).attr('fill','#555')
+      .text('Closest approach (~9.75 mi)');
+    lg.append('text').attr('x',14).attr('y',94).attr('font-size',10).attr('fill','#888')
+      .text('Route alignments are approximate.');
+    lg.append('text').attr('x',14).attr('y',108).attr('font-size',10).attr('fill','#888')
+      .text('MARL pending WV/VA PSC approval.');
+  }
+})();
+</script>
+</body>
+</html>
